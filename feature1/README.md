@@ -23,7 +23,7 @@ Don't worry about what this function actually does for right now, we will implem
 
 When your rootkit is installed, you should be able to run the following command
 
-`ssh gobruins@localhost` and it should print out something to the console.
+`ssh joebruin@localhost` and it should print out something to the console.
 
 Write your code in evil.c, and use the following commands to test your code on the virtual machine.
 
