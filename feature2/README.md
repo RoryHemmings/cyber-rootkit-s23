@@ -1,4 +1,4 @@
-# Required Feature 2: remote shells
+# Feature 2: Backdoor
 
 This week you will use sockets develop the backdoor mechanism for our rootkit.
 
