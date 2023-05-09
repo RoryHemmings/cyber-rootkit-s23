@@ -1,8 +1,6 @@
 services:
   mw-target:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     restart:
       unless-stopped
     ports:
