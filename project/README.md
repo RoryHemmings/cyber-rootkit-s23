@@ -44,7 +44,20 @@ sudo echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
 sudo apt install apache2
 ```
 
-5. run `sudo docker compose up -d`
+5. Install `pip` and `pwntools`
+
+```sh
+sudo apt install pip3
+pip3 install pwntools
+```
+
+6. Install `docker-compose`.
+
+```sh
+sudo apt install docker-compose
+```
+
+7. run `sudo docker compose up -d`
 
 ## Malware Installation Process
 
