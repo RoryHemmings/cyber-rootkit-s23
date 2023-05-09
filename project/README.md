@@ -47,7 +47,7 @@ sudo apt install apache2
 5. Install `pip` and `pwntools`
 
 ```sh
-sudo apt-get install pip3
+sudo apt-get install python3-pip
 pip3 install pwn
 ```
 
