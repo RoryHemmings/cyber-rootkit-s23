@@ -5,7 +5,6 @@
 
 int main() {
 	const int PORT = 1234;
-
 	// create standard ipv4 socket
 	int listen_sock = socket(AF_INET, SOCK_STREAM, 0);
 
