@@ -48,7 +48,7 @@ sudo apt install apache2
 
 ```sh
 sudo apt-get install python3-pip
-pip3 install pwn
+pip3 install pwntools
 ```
 
 6. Install `docker-compose`.
