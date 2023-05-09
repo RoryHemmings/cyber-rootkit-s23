@@ -44,7 +44,7 @@ sudo echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
 sudo apt install apache2
 ```
 
-5. run docker compose up -d
+5. run `sudo docker compose up -d`
 
 ## Malware Installation Process
 
@@ -70,7 +70,7 @@ cp rootkit.tz /var/www/html
 1. run your exploit, it will hang, let it do so
 
 ```sh
-py exploit.py
+python3 exploit.py
 ```
 
 2. in a separate terminal connect to localhost:4567 via `nc` (stage 1 bind shell)
