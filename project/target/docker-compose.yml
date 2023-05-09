@@ -5,10 +5,8 @@ services:
       dockerfile: Dockerfile
     restart:
       unless-stopped
-    network_mode: "host"
     ports:
-      # - 7890-7895:5000
-      - 7890:5000
+      - 5000:5000
       - 1234:1234
       - 3000:3000
       - 22:22
