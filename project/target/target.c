@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define LISTEN_PORT 5000
+#define LISTEN_PORT 2000
 
 volatile int server_sockfd;
 volatile int client_sockfd;

