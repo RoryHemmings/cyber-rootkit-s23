@@ -1,11 +1,13 @@
 services:
   mw-target:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart:
       unless-stopped
     ports:
-      - 5000:5000
-      - 1234:1234
-      - 3000:3000
-      - 4567:4567
-      - 22:22
+      - 2000:2000   # Target Process
+      - 2001:80     # Http Server
+      - 2002:2002   # Exploit Reverse Shell
+      - 2003:2003   # Persistent Backdoor Shell
+      - 2004:22     # SSH

