@@ -1,4 +1,4 @@
-# Teaching CS Students the screts behind (ethical) Malware Engineering
+# Teaching CS Students the secrets behind (ethical) Malware Engineering
 
 Author: Rory Hemmings
 June 7th 2023
