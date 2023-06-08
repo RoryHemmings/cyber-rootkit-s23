@@ -41,6 +41,8 @@ Week 9: demos
 
 ## System Call Hooking
 
+The core of the rootkit revolves around one basic principle: System Call Hooking. The basic idea is that we want to insert some layer between the user and operating system without the users knowledge. That way we can manipulate the information going into the operating system, and filter the information going towards the user.
+
 ## Bind Shell
 
 ## Local testing
