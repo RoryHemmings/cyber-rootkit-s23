@@ -1,4 +1,4 @@
-# Teaching CS Students the secrets behind (ethical) Malware Engineering
+# Teaching CS Students the Secrets Behind (ethical) Malware Development
 
 Author: Rory Hemmings,
 
