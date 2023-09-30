@@ -4,7 +4,7 @@ Author: Rory Hemmings,
 June 7th 2023
 
 **Disclaimer**
-> I am not an expert in this topic, and this project is merely my interpretation/attempt at rootkit development. If you have any suggestions for improvement, please suggest them on GitHub issues in this [repo](https://github.com/RoryHemmings/cyber-rootkit-s23/tree/main).
+> I am not an expert in this topic, and this project is merely my interpretation/attempt at rootkit development. If you have any suggestions for improvement, please suggest them on GitHub issues in this [repo](https://github.com/RoryHemmings/cyber-rootkit-s23/tree/main). Also, **never use any of the techniques discussed for malicious purposes**. If you want to try out any of the code we've written, it is critical that you run it in a VM, as mistakes could brick your system.
 
 For ACM Cyber this spring quarter, we decided to branch off from our workshop/lecture-based style of teaching to try something more practical. To achieve this we offered a "Malware Development Lab" and the "Secure OS Development Lab" instead. Both were intended to be low-level cyber-security projects allowing people to get their hands dirty with practical cybersecurity from a development point of view. This post details the curriculum, outcomes, and results of this quarter's Malware Lab. 
 
